@@ -46,14 +46,17 @@
             </div>
 
             <div class="bg-fuchsia-50 p-4 rounded-2xl border border-fuchsia-100">
-                <label class="block text-sm font-bold text-slate-700 mb-2"><i class="fa-brands fa-galactic-republic text-fuchsia-500 mr-1"></i> Vũ Trụ Truyện Tranh</label>
-                <select id="universe" class="w-full px-4 py-2.5 rounded-xl border border-fuchsia-200 bg-white focus:border-fuchsia-500 focus:ring-4 focus:ring-fuchsia-100 outline-none transition-all text-sm font-bold cursor-pointer text-slate-700 shadow-sm">
-                    <option value="One Piece (Hải tặc, Đồng đội, Truy tìm kho báu)">☠️ One Piece (Hải tặc)</option>
-                    <option value="Doraemon (Nhóm bạn Nobita, Bảo bối thần kỳ)">🐱 Doraemon & Bảo bối</option>
-                    <option value="Thám tử lừng danh Conan (Suy luận phá án)">🕵️ Thám tử Conan</option>
-                    <option value="Spider-Man (Đu tơ nhện, siêu anh hùng)">🕸️ Spider-Man</option>
-                    <option value="Batman (Bóng tối, thám tử)">🦇 Batman</option>
-                </select>
+                <label class="block text-sm font-bold text-slate-700 mb-2"><i class="fa-brands fa-galactic-republic text-fuchsia-500 mr-1"></i> Vũ Trụ (Nhập tay / Chọn)</label>
+                <input type="text" id="universe" list="universe-list" value="Doraemon (Nhóm bạn Nobita, Bảo bối)" placeholder="Ví dụ: Naruto, Dragon Ball..." class="w-full px-4 py-2.5 rounded-xl border border-fuchsia-200 bg-white focus:border-fuchsia-500 focus:ring-4 focus:ring-fuchsia-100 outline-none transition-all text-sm font-bold text-slate-700 shadow-sm">
+                <datalist id="universe-list">
+                    <option value="Doraemon (Nhóm bạn Nobita, Bảo bối)"></option>
+                    <option value="One Piece (Hải tặc, Đồng đội, Truy tìm kho báu)"></option>
+                    <option value="Thám tử lừng danh Conan (Suy luận phá án)"></option>
+                    <option value="Spider-Man (Đu tơ nhện, siêu anh hùng)"></option>
+                    <option value="Batman (Bóng tối, thám tử)"></option>
+                    <option value="Harry Potter (Phép thuật, trường Hogwarts)"></option>
+                    <option value="Dragon Ball (Hành động, siêu năng lực)"></option>
+                </datalist>
             </div>
 
             <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-100">
@@ -96,12 +99,11 @@
 
     <script>
         window.onload = () => {
-            // FIX: Dùng try-catch để tránh lỗi chặn LocalStorage trên môi trường file:///
             try {
                 const savedKey = localStorage.getItem('gemini_api_key_comic');
                 if(savedKey) document.getElementById('apiKey').value = savedKey;
             } catch (e) {
-                console.warn("Trình duyệt không cho phép tải LocalStorage cục bộ.");
+                console.warn("Trình duyệt chặn LocalStorage");
             }
         };
 
@@ -109,7 +111,7 @@
             const apiKey = document.getElementById('apiKey').value.trim();
             const subject = document.getElementById('subject').value.trim();
             const topic = document.getElementById('topic').value.trim();
-            const universe = document.getElementById('universe').value;
+            const universe = document.getElementById('universe').value.trim();
             const panelCount = parseInt(document.getElementById('panelCount').value);
             
             const btn = document.getElementById('generateBtn');
@@ -117,20 +119,17 @@
             const resultGrid = document.getElementById('resultGrid');
             const emptyState = document.getElementById('emptyState');
 
-            // Reset trạng thái lỗi
             errorMsg.classList.add('hidden');
             errorMsg.innerHTML = '';
 
+            // Kiểm tra dữ liệu đầu vào
             if (!apiKey) return showError("Vui lòng nhập API Key của Google Gemini!");
             if (!subject) return showError("Bạn chưa nhập Môn học!");
+            if (!universe) return showError("Bạn chưa nhập Vũ trụ Truyện tranh!");
             if (!panelCount || panelCount < 1 || panelCount > 20) return showError("Số lượng khung phải từ 1 đến 20!");
             if (!topic) return showError("Bạn chưa nhập Nội dung bài học!");
             
-            try {
-                localStorage.setItem('gemini_api_key_comic', apiKey);
-            } catch (e) {
-                console.warn("Trình duyệt không cho phép lưu LocalStorage cục bộ.");
-            }
+            try { localStorage.setItem('gemini_api_key_comic', apiKey); } catch (e) {}
 
             btn.disabled = true;
             btn.innerHTML = `<span class="spinner"></span> <span class="ml-2">ĐANG BIÊN DỊCH PROMPT...</span>`;
@@ -158,8 +157,7 @@
             const userPrompt = `Bài học: ${topic} (Môn: ${subject}). Tạo ${panelCount} phân cảnh ly kỳ.`;
 
             try {
-                // FIX: Hạ cấp sử dụng lõi gemini-3.5-flash siêu ổn định, tránh lỗi 404 Model Not Found
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`, {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -170,15 +168,11 @@
 
                 const data = await response.json();
                 
-                // Bắt lỗi nếu API trả về thông báo lỗi (vd: sai API key)
-                if (!response.ok) {
-                    throw new Error(data.error?.message || `Lỗi kết nối máy chủ Gemini (Status ${response.status})`);
-                }
+                if (!response.ok) throw new Error(data.error?.message || `Lỗi kết nối máy chủ Gemini (Status ${response.status})`);
 
                 let textResult = data.candidates[0].content.parts[0].text;
                 
-                // FIX: Lưới lọc JSON cực mạnh để bóc tách triệt để dữ liệu
-                // Tìm vị trí của dấu ngoặc vuông mở và đóng đầu/cuối cùng để cắt bỏ phần text thừa
+                // Lưới lọc JSON cực mạnh
                 const firstBracket = textResult.indexOf('[');
                 const lastBracket = textResult.lastIndexOf(']');
                 if (firstBracket !== -1 && lastBracket !== -1) {
@@ -188,7 +182,7 @@
                 const panels = JSON.parse(textResult);
 
                 resultGrid.classList.remove('hidden');
-                renderCards(panels, universe);
+                renderCards(panels);
 
             } catch (error) {
                 console.error("Chi tiết lỗi:", error);
@@ -201,7 +195,7 @@
             }
         }
 
-        function renderCards(panels, universe) {
+        function renderCards(panels) {
             const resultGrid = document.getElementById('resultGrid');
             const themes = [
                 { color: 'border-rose-500', icon: 'fa-bolt text-rose-500', bgIcon: 'bg-rose-100' }, 
